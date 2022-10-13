@@ -12,9 +12,9 @@ class CoursesTest extends TestCase
 
     public function test_a_list_of_courses_is_shown()
     {
-        $courses = CourseFactory::new()->count(5)->create();
+        $courses = CourseFactory::new()->count(15)->create();
 
-        $response = $this->getJson('/api/courses');
+        $response = $this->getJson('/api/courses?per_page=5');
         
         // check the titles is correct
         $response->assertJson([
@@ -40,9 +40,9 @@ class CoursesTest extends TestCase
         // check the total is correct
         $response->assertJson([
             'meta' => [
-                'total' => 5,
+                'total' => 15,
             ],
-        ]);
+        ]); 
 
         $response->assertStatus(200);
     }
@@ -57,9 +57,9 @@ class CoursesTest extends TestCase
         ]);
         
         // check the title is correct
-        $response->assertJson([
-            'title' => 'Test Course',
-        ]);
+        $response->assertJson(
+            ['course' => ['title' => 'Test Course']]
+        );
         
         $response->assertStatus(201);
     }
@@ -96,7 +96,9 @@ class CoursesTest extends TestCase
         
         // check the title is correct
         $response->assertJson([
-            'title' => 'Test Course',
+            'course' => [
+                'title' => 'Test Course',
+            ],
         ]);
         
         $response->assertStatus(200);

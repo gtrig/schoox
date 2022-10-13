@@ -2,21 +2,53 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\CourseNotFoundException;
 use App\Http\Requests\CourseStoreRequest;
 use App\Http\Resources\CourseCollection;
 use App\Models\Course;
+use App\Repositories\CourseRepository;
+use App\Services\CreateCourseService;
+use App\Services\DeleteCourseService;
+use App\Services\UpdateCourseService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 
 class CourseController extends Controller
 {
+    /**
+     * @var CourseRepository
+     */
+    private $courseRepository;
+
+    /**
+     * CourseController constructor.
+     * @param CourseRepository $courseRepository
+     */
+    public function __construct(CourseRepository $courseRepository)
+    {
+        $this->courseRepository = $courseRepository;
+    }
+
     /**
      * Display a list of the courses with pagination.
      *
      * @return \Illuminate\Http\Response
      */
     public function index(Request $request)
-    {
-        return new CourseCollection(Course::paginate(($request->has('limit'))?$request->limit:10));
+    {   
+        // if request limit is set, use it, otherwise use default
+        if($request->has('per_page'))
+        {
+            $limit = $request->per_page;
+            $courses = $this->courseRepository->getPaginated($limit);
+        }
+        else
+        {
+            $courses = $this->courseRepository->getAll();
+        }
+        
+
+        return new CourseCollection($courses);
     }
 
     /**
@@ -24,11 +56,14 @@ class CourseController extends Controller
      * @param CourseStoreRequest $request 
      * @return void 
      */
-    public function store(CourseStoreRequest $request)
+    public function store(CourseStoreRequest $request, CreateCourseService $createCourseService)
     {
-        $course = Course::create($request->validated());
+        $course = $createCourseService->createCourse($request->validated());
 
-        return $course;
+        return response()->json([
+            'message' => 'Course created successfully',
+            'course' => $course
+        ], 201);
     }
 
     /**
@@ -39,7 +74,17 @@ class CourseController extends Controller
      */
     public function show($id)
     {
-        return Course::findOrFail($id);
+        try{
+            $course = $this->courseRepository->getById($id);
+        }
+        catch(ModelNotFoundException $e)
+        {
+            throw new CourseNotFoundException();
+        }
+
+        return response()->json([
+            'course' => $course      
+        ], 200);
     }
 
     /**
@@ -49,12 +94,20 @@ class CourseController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function update(CourseStoreRequest $request, $id)
+    public function update(CourseStoreRequest $request, $id, UpdateCourseService $updateCourseService)
     {
-        $course = Course::findOrFail($id);
-        $course->update($request->all());
+        try{
+            $course = $updateCourseService->updateCourse($request->validated(), $id);
+        }
+        catch(ModelNotFoundException $e)
+        {
+            throw new CourseNotFoundException();
+        }
         
-        return $course;
+        return response()->json([
+            'message' => 'Course updated successfully',
+            'course' => $course
+        ]);
     }
 
     /**
@@ -63,11 +116,18 @@ class CourseController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function destroy($id)
+    public function destroy($id, DeleteCourseService $service)
     {
-        $course = Course::findOrFail($id);
-        $course->delete();
-        
-        return $course;
+        try{
+            $service->deleteCourse($id);
+        }
+        catch(ModelNotFoundException $e)
+        {
+            throw new CourseNotFoundException();
+        }
+
+        return response()->json([
+            'message' => 'Course deleted successfully'
+        ]);        
     }
 }
